@@ -8,6 +8,7 @@
 
 #include <uint256.h>
 #include <limits>
+#include <vector>
 
 namespace Consensus {
 
@@ -53,6 +54,11 @@ struct BIP9Deployment {
 /**
  * Parameters that influence chain consensus.
  */
+struct FrozenTxOut {
+    uint256 txid;
+    uint32_t n{0};
+};
+
 struct Params {
     uint256 hashGenesisBlock;
     int nSubsidyHalvingInterval;
@@ -93,6 +99,12 @@ struct Params {
     uint256 nMinimumChainWork;
     /** By default assume that the signatures in ancestors of this block are valid */
     uint256 defaultAssumeValid;
+
+    /** Optional one-block grandfather for the known MWEB input-metadata exploit. */
+    uint256 mweb_input_metadata_grandfather_blockhash;
+
+    /** Emergency frozen outpoints used to quarantine already-pegged-out exploit funds. */
+    std::vector<FrozenTxOut> frozen_txouts;
 
     /**
      * If true, witness commitments contain a payload equal to a Bitcoin Script solution
