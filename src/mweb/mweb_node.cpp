@@ -211,8 +211,12 @@ bool Node::ConnectBlock(const CBlock& block, const Consensus::Params& consensus_
             return state.Invalid(BlockValidationResult::BLOCK_MUTATED, "mweb-amount-mismatch", "HogEx amount does not match expected MWEB amount"); // TODO: This can be CONSENSUS
         }
 
+        const bool allow_historical_metadata_mismatch =
+            !consensus_params.mweb_input_metadata_grandfather_blockhash.IsNull()
+            && block.GetHash() == consensus_params.mweb_input_metadata_grandfather_blockhash;
+
         try {
-            blockundo.mwundo = mweb_view.ApplyBlock(block.mweb_block.m_block);
+            blockundo.mwundo = mweb_view.ApplyBlock(block.mweb_block.m_block, allow_historical_metadata_mismatch);
         } catch (const std::exception& e) {
             // MWEB: Need to distinguish between invalid blocks and mutated blocks
             return state.Invalid(BlockValidationResult::BLOCK_MUTATED, "mweb-connect-failed", strprintf("MWEB::Node::ConnectBlock(): Failed to connect MWEB block: %s", e.what()));

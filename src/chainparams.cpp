@@ -57,6 +57,20 @@ static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits
     return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
 }
 
+static std::vector<Consensus::FrozenTxOut> GetEmergencyFrozenTxOuts()
+{
+    return {
+        {uint256S("0x9e3fa709f482d81442c8cd95ee45a34f603e60ea35795228ce948cdc60e0661f"), 0},
+        {uint256S("0x6708daa4c905adcfe3f0e4e498bd56dcd4e377cccd3948b15e1eb3f0f8ff4eca"), 0},
+        {uint256S("0x861d2777f93e6998b576d97298ef0d0518b53a944619f897fd0f0b92ed4ea4b5"), 1},
+    };
+}
+
+static uint256 GetApprovedFrozenTxSpendTxID()
+{
+    return uint256S("0x509e1c1a1198f27a3c8a3edc2f0bf99a6f8c89854112b64e98a487940a579258");
+}
+
 /**
  * Main network
  */
@@ -98,6 +112,11 @@ public:
 
         consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000000000146878abee06fa883e0a");
         consensus.defaultAssumeValid = uint256S("0x80cdb35c080484df5bf384b311fde3c4694d3405765bc0f596e9eb369ff286e5"); // 2772730
+
+        // Emergency MWEB exploit carry-forward hooks for the known active-chain exploit.
+        consensus.mweb_input_metadata_grandfather_blockhash = uint256S("0xd1695b5d115f86927a9763768218118ba88b315844e1a0681fa08f6f008be622");
+        consensus.frozen_txouts = GetEmergencyFrozenTxOuts();
+        consensus.approved_frozen_tx_spend_txid = GetApprovedFrozenTxSpendTxID();
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -314,6 +333,8 @@ public:
 
         consensus.nMinimumChainWork = uint256{};
         consensus.defaultAssumeValid = uint256{};
+        consensus.frozen_txouts = GetEmergencyFrozenTxOuts();
+        consensus.approved_frozen_tx_spend_txid = GetApprovedFrozenTxSpendTxID();
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;

@@ -4,6 +4,7 @@
 
 #include <consensus/tx_verify.h>
 
+#include <chainparams.h>
 #include <consensus/consensus.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
@@ -166,8 +167,35 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     return nSigOps;
 }
 
+static bool IsFrozenTxOut(const COutPoint& prevout, const Consensus::Params& consensus_params)
+{
+    for (const Consensus::FrozenTxOut& frozen_txout : consensus_params.frozen_txouts) {
+        if (prevout.hash == frozen_txout.txid && prevout.n == frozen_txout.n) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool IsApprovedFrozenTxSpend(const CTransaction& tx, const Consensus::Params& consensus_params)
+{
+    return !consensus_params.approved_frozen_tx_spend_txid.IsNull()
+        && tx.GetHash() == consensus_params.approved_frozen_tx_spend_txid;
+}
+
 bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee)
 {
+    const auto& consensus_params = ::Params().GetConsensus();
+    const bool approved_frozen_tx_spend = IsApprovedFrozenTxSpend(tx, consensus_params);
+
+    for (const CTxIn& txin : tx.vin) {
+        if (IsFrozenTxOut(txin.prevout, consensus_params) && !approved_frozen_tx_spend) {
+            return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-frozen-utxo",
+                strprintf("%s: spends frozen outpoint %s:%u", __func__, txin.prevout.hash.ToString(), txin.prevout.n));
+        }
+    }
+
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
         return state.Invalid(TxValidationResult::TX_MISSING_INPUTS, "bad-txns-inputs-missingorspent",
