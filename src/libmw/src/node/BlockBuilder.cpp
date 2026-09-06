@@ -10,6 +10,13 @@ MW_NAMESPACE
 
 bool BlockBuilder::AddTransaction(const Transaction::CPtr& pTransaction, const std::vector<PegInCoin>& pegins)
 {
+    // Check input count
+    const size_t num_inputs = pTransaction->GetInputs().size();
+    if ((num_inputs + m_num_inputs) > mw::MAX_NUM_INPUTS) {
+        LOG_ERROR("Exceeds max input count");
+        return false;
+    }
+
     // Check weight
     uint64_t weight = Weight::Calculate(pTransaction->GetBody());
     if ((weight + m_weight) > mw::MAX_BLOCK_WEIGHT) {
@@ -18,11 +25,16 @@ bool BlockBuilder::AddTransaction(const Transaction::CPtr& pTransaction, const s
     }
     
     // Verify pegin amount matches
-    const uint64_t actual_amount = pTransaction->GetPegInAmount();
-    const uint64_t expected_amount = std::accumulate(pegins.cbegin(), pegins.cend(), (uint64_t)0,
-        [](const uint64_t sum, const PegInCoin& pegin) { return sum + pegin.GetAmount(); }
+    const auto actual_amount = pTransaction->GetPegInAmount();
+    if (!actual_amount) {
+        LOG_ERROR("Invalid pegin amount");
+        return false;
+    }
+
+    const CAmount expected_amount = std::accumulate(pegins.cbegin(), pegins.cend(), (CAmount)0,
+        [](const CAmount sum, const PegInCoin& pegin) { return sum + pegin.GetAmount(); }
     );
-    if (actual_amount != expected_amount) {
+    if (*actual_amount != expected_amount) {
         LOG_ERROR("Mismatched pegin amount");
         return false;
     }
@@ -104,6 +116,7 @@ bool BlockBuilder::AddTransaction(const Transaction::CPtr& pTransaction, const s
 
     m_stagedTxs.push_back(pTransaction);
     m_weight += weight;
+    m_num_inputs += num_inputs;
 
     for (const Output& output : pTransaction->GetOutputs()) {
         auto inserted = m_stagedOutputs.insert(output.GetOutputID());
